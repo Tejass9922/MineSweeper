@@ -1,5 +1,13 @@
 import random
 
+
+row = [-1, -1, -1, 0, 0, 1, 1, 1]
+col = [-1, 0, 1, -1, 1, -1, 0, 1]
+d = 5
+n = 10
+d = 5
+n = 10
+
 class Cell:
     def __init__(self, safe, numMinesInden, clue, numSafeNeighbors, numHiddenSquares, visited, location):
         self.safe = safe
@@ -50,12 +58,6 @@ def createBoard(n, d):
     printboard(minMap, d)
     return minMap
 
-row = [-1, -1, -1, 0, 0, 1, 1, 1]
-col = [-1, 0, 1, -1, 1, -1, 0, 1]
-d = 5
-n = 10
-minMap = createBoard(n, d)
-KB = {}
 
 def getClue(board, cell):
     clue = 0
@@ -63,7 +65,8 @@ def getClue(board, cell):
     for i in range(8):
         x = row[i] + cell.location[0]
         y = col[i]  + cell.location[1]
-        if x >= 0 or x < n or y >=0 or y < n:
+        if x >= 0 and x < n and y >=0 and y < n:
+            print(x, y)
             if (board[x][y].safe == False):
                 clue += 1
     return clue
@@ -74,67 +77,78 @@ def getNeighbors(board, cell):
     for i in range(8):
         x = row[i] + cell.location[0]
         y = col[i]  + cell.location[1]
-        if x >= 0 or x < n or y >=0 or y < n:
+        if x >= 0 and x < n and y >=0 and y < n:
             neighbors.append(board[x][y])
     return neighbors
 
-def hiddenCells(minMap, cell):
-    hiddenCells = 0
+def hiddenCells(board, cell):
+    hiddenCellsNums = 0
     n = len(board)
     for i in range(8):
         x = row[i] + cell.location[0]
         y = col[i]  + cell.location[1]
-        if x >= 0 or x < n or y >=0 or y < n:
+        if x >= 0 and x < n and y >=0 and y < n:
             if (board[x][y].visited == 0):
-                hiddenCells += 1
-    return hiddenCells
+                hiddenCellsNums += 1
+    return hiddenCellsNums
 
-def revealedMines(minMap, cell):
+def revealedMines(board, cell):
     revealedMines = 0
     n = len(board)
     for i in range(8):
         x = row[i] + cell.location[0]
         y = col[i]  + cell.location[1]
-        if x >= 0 or x < n or y >=0 or y < n:
+        if x >= 0 and x < n and y >=0 and y < n:
             if (board[x][y].visited == -1):
                 revealedMines += 1
     return revealedMines
 
-def revealedSafeNeighbors(minMap, cell):
+def revealedSafeNeighbors(board, cell):
     revealedSafeNeighbors = 0
     n = len(board)
     for i in range(8):
         x = row[i] + cell.location[0]
         y = col[i]  + cell.location[1]
-        if x >= 0 or x < n or y >=0 or y < n:
+        if x >= 0 and x < n and y >=0 and y < n:
             if (board[x][y].visited == 1):
                 revealedSafeNeighbors += 1
     return revealedSafeNeighbors
 
 def solver1(minMap, d, n):
-    xRand, =  (random.randInt(0,len(board)-1))
-    yRand =   (random.randInt(0,len(board)-1))
+    xRand = (random.randint(0,len(minMap)-1))
+    yRand = (random.randint(0,len(minMap)-1))
    
     remainingCells = set()
+    for i in range(len(minMap)):
+        for j in range(len(minMap)):
+            remainingCells.add(minMap[i][j].location)
+
+
     identified_mines = []
     tripped_mines = []
     chosenCellLocation = minMap[xRand][yRand]
     queue = [chosenCellLocation]
+    i = 0
     while (i < n):
         
         size = len(queue)
-        while (size > 0):
+        while (len(queue) > 0):
+            
             cell = queue.pop()
+            remainingCells.remove(cell.location)
             tSize = len(queue)
             if not cell.safe:
                 tripped_mines.append(cell.location)
                 cell.visited = -1
+                i += 1
+                continue
 
             elif cell.safe:
                 cell.visited = 1
                 differenceInClue = getClue(minMap, cell) - revealedMines(minMap, cell)
-                hiddenCells = hiddenCells(minMap, cell)
-                cell.numHiddenSquares = hiddenCells
+                hiddenCellsNum = hiddenCells(minMap, cell)
+                cell.numHiddenSquares = hiddenCellsNum
+                neighbors = getNeighbors(minMap,cell)
                 cell.numSafeNeighbors = len(neighbors) - getClue(minMap, cell)
 
             if (differenceInClue == cell.numHiddenSquares):
@@ -142,19 +156,29 @@ def solver1(minMap, d, n):
                 for c in neighbors:
                     c.visited = -1
                     identified_mines.append(c.location)
+                    i += 1
 
             cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
             if ((cell.numSafeNeighbors - cell.numRevealedNeighbors) == cell.numHiddenSquares):
                 for c in neighbors:
-                    q.append(c)
+                    queue.append(c)
             if len(queue) == tSize:
+                xRand = (random.randint(0,len(minMap)-1))
+                yRand = (random.randint(0,len(minMap)-1))
+                tlocation = minMap[xRand][yRand]
+                while (tlocation.visted == 1 or tlocation.visited == 0 or tlocation.location in remainingCells):
+                    xRand = (random.randint(0,len(minMap)-1))
+                    yRand = (random.randint(0,len(minMap)-1))
+                    tlocation = minMap[xRand][yRand]
+                queue.append(tlocation)
 
+            if i >= n:
+                break
+                   
 
-           
+    return (identified_mines,tripped_mines)
 
-    return minMap
-
-
+'''
 def kbEquation(minMap, cell):
     (neighbors, clue) = getNeighborsandClue(minMap, cell)
     cell.clue = clue
@@ -219,3 +243,13 @@ def solver2(minMap, d, n):
                         if not 
                             contiue over (**Don't want negative numbers)
                         """
+                
+    
+
+'''
+
+
+minMap = createBoard(n, d)
+(identified, tripped) = solver1(minMap, 5, 10)
+print(identified)
+print(tripped)
