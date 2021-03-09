@@ -52,11 +52,23 @@ def createBoard(n, d):
 
 row = [-1, -1, -1, 0, 0, 1, 1, 1]
 col = [-1, 0, 1, -1, 1, -1, 0, 1]
+d = 5
+n = 10
+minMap = createBoard(n, d)
+KB = {}
 
-
-
-def getNeighborsandClue(board, cell):
+def getClue(board, cell):
     clue = 0
+    n = len(board)
+    for i in range(8):
+        x = row[i] + cell.location[0]
+        y = col[i]  + cell.location[1]
+        if x >= 0 or x < n or y >=0 or y < n:
+            if (board[x][y].safe == False):
+                clue += 1
+    return clue
+
+def getNeighbors(board, cell):
     neighbors  = []
     n = len(board)
     for i in range(8):
@@ -64,25 +76,84 @@ def getNeighborsandClue(board, cell):
         y = col[i]  + cell.location[1]
         if x >= 0 or x < n or y >=0 or y < n:
             neighbors.append(board[x][y])
-            if (board[x][y].safe == False):
-                clue += 1
-            
+    return neighbors
 
-    return (neighbors, clue)
+def hiddenCells(minMap, cell):
+    hiddenCells = 0
+    n = len(board)
+    for i in range(8):
+        x = row[i] + cell.location[0]
+        y = col[i]  + cell.location[1]
+        if x >= 0 or x < n or y >=0 or y < n:
+            if (board[x][y].visited == 0):
+                hiddenCells += 1
+    return hiddenCells
+
+def revealedMines(minMap, cell):
+    revealedMines = 0
+    n = len(board)
+    for i in range(8):
+        x = row[i] + cell.location[0]
+        y = col[i]  + cell.location[1]
+        if x >= 0 or x < n or y >=0 or y < n:
+            if (board[x][y].visited == -1):
+                revealedMines += 1
+    return revealedMines
+
+def revealedSafeNeighbors(minMap, cell):
+    revealedSafeNeighbors = 0
+    n = len(board)
+    for i in range(8):
+        x = row[i] + cell.location[0]
+        y = col[i]  + cell.location[1]
+        if x >= 0 or x < n or y >=0 or y < n:
+            if (board[x][y].visited == 1):
+                revealedSafeNeighbors += 1
+    return revealedSafeNeighbors
+
+def solver1(minMap, d, n):
+    xRand, =  (random.randInt(0,len(board)-1))
+    yRand =   (random.randInt(0,len(board)-1))
+   
+    remainingCells = set()
+    identified_mines = []
+    tripped_mines = []
+    chosenCellLocation = minMap[xRand][yRand]
+    queue = [chosenCellLocation]
+    while (i < n):
+        
+        size = len(queue)
+        while (size > 0):
+            cell = queue.pop()
+            tSize = len(queue)
+            if not cell.safe:
+                tripped_mines.append(cell.location)
+                cell.visited = -1
+
+            elif cell.safe:
+                cell.visited = 1
+                differenceInClue = getClue(minMap, cell) - revealedMines(minMap, cell)
+                hiddenCells = hiddenCells(minMap, cell)
+                cell.numHiddenSquares = hiddenCells
+                cell.numSafeNeighbors = len(neighbors) - getClue(minMap, cell)
+
+            if (differenceInClue == cell.numHiddenSquares):
+                neighbors = getNeighbors(minMap,cell)
+                for c in neighbors:
+                    c.visited = -1
+                    identified_mines.append(c.location)
+
+            cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
+            if ((cell.numSafeNeighbors - cell.numRevealedNeighbors) == cell.numHiddenSquares):
+                for c in neighbors:
+                    q.append(c)
+            if len(queue) == tSize:
 
 
+           
 
+    return minMap
 
-
-d = 5
-n = 10
-
-
-minMap = createBoard(n, d)
-
-
-
-KB = {}
 
 def kbEquation(minMap, cell):
     (neighbors, clue) = getNeighborsandClue(minMap, cell)
@@ -96,9 +167,7 @@ def kbEquation(minMap, cell):
         value: set of neighbors (objects containing locations)"""
     return 
 
-
-    
-def solver(minMap, d, n):
+def solver2(minMap, d, n):
     switch = 0 #used for breaking out of loop when you find a 0 (safe) value
     numMines = n
     
@@ -147,7 +216,6 @@ def solver(minMap, d, n):
                                             
                                 else 
                                     numMines -= 1
-
                         if not 
                             contiue over (**Don't want negative numbers)
                         """
