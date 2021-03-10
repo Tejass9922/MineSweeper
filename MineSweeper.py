@@ -139,10 +139,7 @@ def solver1(minMap, d, n):
     yRand = (random.randint(0,len(minMap)-1))
    
     visited = set()
-    remainingCells = set()
-    for i in range(len(minMap)):
-        for j in range(len(minMap)):
-            remainingCells.add(minMap[i][j].location)
+   
     
 
 
@@ -155,26 +152,27 @@ def solver1(minMap, d, n):
     queue = []
     queue.append(chosenCellLocation)
     i = 0
-    counter = 0
+    
     while (i < n):
         
         size = len(queue)
         added = False
-        
+        counter = 0
         while (counter < size):
           
             cell = queue.pop()
-            print((cell.location, cell.visited))
+            #print((cell.location, cell.visited))
            
             counter +=1
             visited.add(cell.location)
-            remainingCells.remove(cell.location)
+            #remainingCells.remove(cell.location)
             tSize = len(queue)
             if not cell.safe:
                 #print("Cell location of tripped mine: ", end = '\t')
                 #print(cell.location)
                 tripped_mines.append(cell.location)
                 cell.visited = -1
+                
                 i += 1
                 continue
 
@@ -194,17 +192,18 @@ def solver1(minMap, d, n):
                     print(cell.location)
                     for c in neighbors:
                         print(c.visited)
-                        if c.visited == 0 and c.location in remainingCells:
+                        if c.visited == 0:
                             c.visited = 2
                             identified_mines.append(c.location)
                             visited.add(c.location)
-                            remainingCells.remove(c.location)
+                            #remainingCells.remove(c.location)
                             i += 1
 
                 
                 elif ((len(neighbors)- cell.clue) - cell.numSafeNeighbors == cell.numHiddenSquares):
                     for c in neighbors:
-                        if c.visited == 0 and c.location in remainingCells:
+                        print((c.location, c.visited))
+                        if c.visited == 0 and not c in queue:
                             queue.append(c)
                     added = True
 
@@ -216,20 +215,19 @@ def solver1(minMap, d, n):
         if len(visited) == pow(d,2):
             break
         if not added:
-            random_location  = random.choice(tuple(remainingCells))
-            xRand = random_location[0]
-            yRand = random_location[1]
-            random_cell = minMap[xRand][yRand]
-            queue.append(random_cell)
-            '''
-            xRand = (random.randint(0,len(minMap)-1))
-            yRand = (random.randint(0,len(minMap)-1))
-            tlocation = minMap[xRand][yRand]
-            while (tlocation.location in visited):
-                xRand = (random.randint(0,len(minMap)-1))
-                yRand = (random.randint(0,len(minMap)-1))
-                tlocation = minMap[xRand][yRand]
-            '''
+            remainingCells = set()
+            for i in range(len(minMap)):
+                for j in range(len(minMap)):
+                    if not minMap[i][j] in queue and minMap[i][j].visited == 0:
+                        remainingCells.add(minMap[i][j].location)
+
+            if len(remainingCells) > 0:
+                random_location  = random.choice(tuple(remainingCells))
+                xRand = random_location[0]
+                yRand = random_location[1]
+                random_cell = minMap[xRand][yRand]
+                queue.append(random_cell)
+           
             
 
             
