@@ -3,8 +3,8 @@ import random
 
 row = [-1, -1, -1, 0, 0, 1, 1, 1]
 col = [-1, 0, 1, -1, 1, -1, 0, 1]
-d = 16
-n = 40
+d = 9
+n = 10
 
 
 
@@ -119,7 +119,7 @@ def revealedMines(board, cell):
         x = row[i] + cell.location[0]
         y = col[i]  + cell.location[1]
         if x >= 0 and x < n and y >=0 and y < n:
-            if (board[x][y].visited == -1):
+            if (board[x][y].visited == -1 or board[x][y].visited == 2):
                 revealedMines += 1
     return revealedMines
 
@@ -140,11 +140,6 @@ def solver1(minMap, d, n):
    
     visited = set()
    
-    
-
-
-    
-
     print("check 1")
     identified_mines = []
     tripped_mines = []
@@ -154,87 +149,113 @@ def solver1(minMap, d, n):
     i = 0
     
     while (i < n):
-        
+        print("i val: ", end = ' ')
+        print(i)
         size = len(queue)
         added = False
         counter = 0
-        while (counter < size):
+        while (len(queue)> 0):
           
             cell = queue.pop()
-            #print((cell.location, cell.visited))
+            print((cell.location, cell.visited))
            
             counter +=1
             visited.add(cell.location)
             #remainingCells.remove(cell.location)
-            tSize = len(queue)
+
             if not cell.safe:
+                print("tripped mine")
                 #print("Cell location of tripped mine: ", end = '\t')
                 #print(cell.location)
                 tripped_mines.append(cell.location)
                 cell.visited = -1
-                
+                added = True
                 i += 1
                 continue
 
             elif cell.safe:
+                print("cell safe", end = ' ')
+                print(i)
                 cell.clue = getClue(minMap,cell)
                 cell.visited = 1
                 cell.revealedMines =  revealedMines(minMap, cell)
+                
                 hiddenCellsNum = hiddenCells(minMap, cell)
                 cell.numHiddenSquares = hiddenCellsNum
                 neighbors = getNeighbors(minMap,cell)
                 cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
+                print((cell.revealedMines, cell.numHiddenSquares, cell.numSafeNeighbors))
                #  cell.numSafeNeighbors = len(neighbors) - getClue(minMap, cell)
 
                 if (cell.clue- cell.revealedMines == cell.numHiddenSquares):
+                    print("all mines")
                     neighbors = getNeighbors(minMap,cell)
                     #print(differenceInClue,cell.numHiddenSquares)
-                    print(cell.location)
+                    #print(cell.location)
                     for c in neighbors:
-                        print(c.visited)
-                        if c.visited == 0:
+                        #print(c.visited)
+                        if c.visited == 0 and not c in queue:
                             c.visited = 2
                             identified_mines.append(c.location)
                             visited.add(c.location)
                             #remainingCells.remove(c.location)
                             i += 1
-
-                
+                        elif c.visited == 0 and c in queue:
+                            c.visited = 2
+                            identified_mines.append(c.location)
+                            visited.add(c.location)
+                            queue.remove(c)
+                            size -= 1
+                    #added = True
+                    print("random i val check: ", end = ' ')
+                    print(i)
                 elif ((len(neighbors)- cell.clue) - cell.numSafeNeighbors == cell.numHiddenSquares):
+                    print("all safe")
                     for c in neighbors:
-                        print((c.location, c.visited))
+                        #print((c.location, c.visited))
                         if c.visited == 0 and not c in queue:
                             queue.append(c)
                     added = True
+                    print("random i val check 2: ", end = ' ')
+                    print(i)
 
             if i >= n:
+                print("wackkkk")
                 break 
         #printTimeSteps(minMap,d)
         #print("--------------------------------------------\n\n")
         #time_step =  input("e")
+       
         if len(visited) == pow(d,2):
+            print("also wackk")
             break
         if not added:
+            print("not added")
             remainingCells = set()
-            for i in range(len(minMap)):
-                for j in range(len(minMap)):
-                    if not minMap[i][j] in queue and minMap[i][j].visited == 0:
-                        remainingCells.add(minMap[i][j].location)
+            for row in range(len(minMap)):
+                for col in range(len(minMap)):
+                    if  not minMap[row][col] in queue and minMap[row][col].visited == 0:
+                        
+                        remainingCells.add(minMap[row][col].location)
 
             if len(remainingCells) > 0:
+                print("i check: ", end = ' ')
+                print(i)
+                print("remaining cells calculated")
                 random_location  = random.choice(tuple(remainingCells))
                 xRand = random_location[0]
                 yRand = random_location[1]
                 random_cell = minMap[xRand][yRand]
+                print(random_cell.location)
                 queue.append(random_cell)
-           
+                print(i)
             
 
             
-                   
+    print(visited)             
     printTimeSteps(minMap,d)
     return (identified_mines,tripped_mines)
-
+'''
 def solver1t(board, n, d):
 
     visited = set()
@@ -296,7 +317,7 @@ def solver1t(board, n, d):
             break
         
         if not added:
-            
+           
             xRand = random.randint(0,len(board)-1)
             yRand = random.randint(0,len(board)-1)
             random_cell = board[xRand][yRand]
@@ -313,7 +334,7 @@ def solver1t(board, n, d):
                 
             
                 
-
+'''
 
 
 '''
@@ -387,16 +408,35 @@ def solver2(minMap, d, n):
 
 success_rate = []
 total_rate = []
+counter = 0
 for i in range(100):
     minMap = createBoard(n, d)
     (identified, tripped) = solver1(minMap, d, n)
+    s1 = set(identified)
+    s2  = set(tripped)
+    if (len(s1.intersection(s2)) != 0):
+        counter += 1
+    print("----------------------------->")
+    print("Identified: ", end = ' ')
+    print(identified)
+    print("Tripped: ", end = ' ')
+    print(tripped)
     success_rate.append(len(identified))
+    print("----------------------------->")
     total_rate.append(n)
+for i in range(len(minMap)):
+    for j in range(len(minMap)):
+        print(minMap[i][j].visited, end = '\t')
 
-success = float(float(sum(success_rate))/ float(sum(total_rate)))
+    print('\n')
 
+success = ((sum(success_rate)))
+total =  (sum(total_rate))
+print(counter)
+rate = float(float(success)/ float(total))
 print("success rate: ", end = '\t')
-print(success)
+print((success, total))
+print(rate)
 '''
 print("Identified mines : ", end = '\t')
 print(identified)
