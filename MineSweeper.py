@@ -348,6 +348,7 @@ print(tripped)
 --Tejas Pseudocode----
 
 def heuristic_assignments(KB,board,eq,clue):
+    #Checks if there is any possible assignment for variables based on length. To understand: Use A  + B = Clue val and A - B = Clue val for length = 2 and generate all possible combinations for 0 and 1
     assignment_set = set()
     --Based on length of eq, return possible assignments for variables if any
 
@@ -406,7 +407,7 @@ def solver2(KB, board, d, n):
     inferenced_cells = set()
   while (mines_found < n):
         revealed = False
-        assignment set = [] # set of Assignment tuples that can grow over time in the iteration. Tuple that holds : (cell location, assignment (0 or 1)) ) 0 is safe and 1 is mine
+        assignment set = [] # set of Variables Objects that can grow over time in the iteration. Tuple that holds : (cell location, assignment (0 or 1)) ) 0 is safe and 1 is mine
         
         #INFERENCE STEP
         for keyA in KB:
@@ -426,7 +427,7 @@ def solver2(KB, board, d, n):
                        
                    
                          #Create Temp set of variables before assignmnet of positive or negative signs
-                        eqt = eq1.union(eq2)- eq2.intersection(eq1) 
+                        eqt = eq1.union(eq2)- eq2.intersection(eq1)  #Subtraction implementation
                         eq3 = set()
                         sent_clue = abs(keyA - keyB)
                         if keyA[1] > keyB[1]:
@@ -455,7 +456,7 @@ def solver2(KB, board, d, n):
                                                 - create new key and add eq to KB
                                 case 3: len > 2:
                                         - call heuristic to try to get an assignment set
-                                         assignment_set = heuristic(KB,board,eq3,sent_clue)
+                                         assignment_set.add(heuristic(KB,board,eq3,sent_clue))
 
                                         -- if assignment_set comes back empty, add eq right away to the KB
 
@@ -481,6 +482,7 @@ def solver2(KB, board, d, n):
                         if assignment.assignmnet == 1:
                             keyC.clue -= 1
                             identified_mines.append(assignment.location)
+                            board[assignment.location[0]][assignment.location[1]] == 2
                             mines_found  += 1
 
                         eq.remove(assignment) #position of this statement and the above subject to change
@@ -509,7 +511,7 @@ def solver2(KB, board, d, n):
 
         clue_counter = len(KB)
         for assignment in assignment_set_copy:
-        if assignment.safe:
+        if assignment.assignment == 0:
             location = assignment.location 
 
             x = location[0]
@@ -522,6 +524,7 @@ def solver2(KB, board, d, n):
             
             #This will be objects. Could take up multiple lines of code to make them into objects though.
             #Will be hashed based on location
+            #Create new Variable objects for each of the hidden neighbors based on location
             eq = set(hiddenNeighbors) 
 
             clue_counter += 1
