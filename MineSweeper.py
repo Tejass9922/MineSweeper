@@ -347,9 +347,56 @@ print(tripped)
 '''
 --Tejas Pseudocode----
 
-def heuristic_assignments(KB,board,eq):
+def heuristic_assignments(KB,board,eq,clue):
     assignment_set = set()
     --Based on length of eq, return possible assignments for variables if any
+
+    if len(eq) == 1: 
+        variable = NULL
+            for e in eq:
+                variable = e
+                break
+        if clue == 1:
+            variable.assignment = 1
+        else:
+            variable.assignment = 0
+
+        assignment_set.add(variable)
+
+    elif len(eq) == 2:
+        negative_counter = 0
+        for e in eq:
+            negative_counter += 1 if e.negative else 0
+
+        if clue == 0:
+           if negative_counter == 0 or negative_counter == 2:
+               for e in eq:
+                   e.assignment = 0
+                   assignment_set.add(e)
+            if negative_counter == 1:
+                for e in eq:
+                    e.assignment = 1
+                    assignment_set.add(e)
+        
+        if clue == 1:
+            if negative_counter == 1:
+                for e in eq:
+                    if e.negative:
+                        e.assignmnet = 0
+                    else:
+                        e.assignment = 1
+                    
+                    assignment_set.add(e)
+        
+        if clue == 2:
+            for e in eq:
+                e.assignment = 1
+                assignment_set.add(e)
+
+    return assignmnet_set
+
+
+
 
 def solver2(KB, board, d, n):
 
@@ -366,23 +413,51 @@ def solver2(KB, board, d, n):
             for keyB in KB:
                 if keyA == keyB:
                     continue
+                if KB.get(keyA).intersect(KB.get(keyA)):
+                    #Trim KB to make sure it only holds unique equations
+                    KB.remove(keyB)
+                    continue
                 --check subtraction of 2 sets: (2 conditions, intersect and len or subtraction)
                     #Note make an object where the set elements are comparable 
                     eq1 = KB.get(keyA)
                     eq2 = KB.get(keyB)
                     if len(eq1.intersect(eq2)) > 0:
-                    eq3 = eq1.union(eq2)- eq2.intersection(eq1)
-                    if len(eq3) <= min{len(eq1), len(eq2)}:
-                        --check len:
-                            case 1: len = 1
-                                    - reveal first and then create assignment set? or flip?? idk the benefit (most likely going to add to assignment set and then reveal in second loop)
-                            case 2: len = 2
-                                    - call heuristic function to deal with that to get an assignemnt set
-                                        - if assignment set len == 0
-                                            - create new clue and add to KB
+                        #Check which clue is bigger
+                       
+                   
+                         #Create Temp set of variables before assignmnet of positive or negative signs
+                        eqt = eq1.union(eq2)- eq2.intersection(eq1) 
+                        eq3 = set()
+                        sent_clue = abs(keyA - keyB)
+                        if keyA[1] > keyB[1]:
+                            for e in eqt:
+                                if e in eq2:
+                                    #Create Variable class : (location,sign(True = +, False = -), assignment)
+                                    eq3.add(Variable(e.location,False,None))
+                                elif e in eq1:
+                                    eq3.add(Variable(e.location,True,None))
+                        else:
+                             for e in eqt:
+                                if e in eq1:
+                                    #Create Variable class : (location,sign(True = +, False = -), assignment)
+                                    eq3.add(Variable(e.location,False,None))
+                                elif e in eq2:
+                                    eq3.add(Variable(e.location,True,None))
+
+                        if len(eq3) <= min{len(eq1), len(eq2)}: 
+                            --check len:
+                                case 1: len = 1
+                                        - reveal first and then create assignment set? or flip?? idk the benefit (most likely going to add to assignment set and then reveal in second loop)
+                                case 2: len = 2
+                                        - call heuristic function to deal with that to get an assignemnt set
+                                            assignment_set = heuristic(KB,board,eq3,sent_clue)
+                                            - if assignment set len == 0
+                                                - create new key and add eq to KB
                                 case 3: len > 2:
-                                    - call heuristic to try to get an assignment set
-                                    - add new clue to KB
+                                        - call heuristic to try to get an assignment set
+                                         assignment_set = heuristic(KB,board,eq3,sent_clue)
+
+                                        -- if assignment_set comes back empty, add eq right away to the KB
 
                         
 
@@ -399,9 +474,11 @@ def solver2(KB, board, d, n):
             for keyC in KB:
                 eq = KB.get(keyC)
                 #2 options, use intersect or just nest the loops. Probably going with nesting because we are dealing with 2 different types of objects??
+                    #--update: utilize same object for assignment sets and KB equation objects. easier that way
+
                 for assignment in assignment_set:
                     if assignment in eq:
-                        if assignment.mine:
+                        if assignment.assignmnet == 1:
                             keyC.clue -= 1
                             identified_mines.append(assignment.location)
                             mines_found  += 1
@@ -411,10 +488,19 @@ def solver2(KB, board, d, n):
                         if len(eq) == 0:
                             KB.remove(keyC)
                         if len(eq) == 1 or 2:
-                            call heuristic
-                            new_set = return value from heuristic
-                            assignment_set.add(new_set)
-                            assignment_set_copy.add(new_set)
+                            in_set_already = False
+
+                            #Prevents double assignmnets 
+                            for e in eq:
+                                if e in assignmnet_set:
+                                    in_set_already = True
+                                    break
+
+                            if not in_set_already:
+                                call heuristic
+                                new_set = return value from heuristic
+                                assignment_set.add(new_set)
+                                assignment_set_copy.add(new_set)
 
                     
                     
@@ -460,6 +546,8 @@ def solver2(KB, board, d, n):
             if random_cell.safe:
                 minMap[xRand][yRand].visited = 1
                 ---#Create equation for the Cell---
+                    #Includes creating new instance of Variable object (see line 443 for example)
+                    #and adding it to the KB by incrementing the clue counter
             else:
                 minMap[xRand][yRand].visited = -1
                 tripped_mines.append(random_cell.location)
