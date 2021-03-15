@@ -3,8 +3,8 @@ import random
 
 row = [-1, -1, -1, 0, 0, 1, 1, 1]
 col = [-1, 0, 1, -1, 1, -1, 0, 1]
-d = 5
-n = 5
+d = 9
+n = 10
 
 
 
@@ -302,8 +302,8 @@ total_rate = []
 scores = []
 counter = 0
 for i in range(100):
-    minMap = createBoard(n_mines, dim)
-    (identified, tripped) = solver(minMap, dim, n_mines)
+    minMap = createBoard(n, d)
+    (identified, tripped) = solver(minMap, d, n)
    
     s1 = set(identified)
     s2  = set(tripped)
@@ -316,7 +316,7 @@ for i in range(100):
     print(tripped)
     success_rate.append(len(identified))
     print("----------------------------->")
-    total_rate.append(n_mines)
+    total_rate.append(n)
 for i in range(len(minMap)):
     for j in range(len(minMap)):
         print(minMap[i][j].visited, end = '\t')
@@ -339,7 +339,150 @@ print(tripped)
 '''
 
 
-
+'''
 
 
     
+'''
+'''
+--Tejas Pseudocode----
+
+def heuristic_assignments(KB,board,eq):
+    assignment_set = set()
+    --Based on length of eq, return possible assignments for variables if any
+
+def solver2(KB, board, d, n):
+
+    iidentified_mines = []
+    tripped_mines = []
+    visited = set()
+    inferenced_cells = set()
+  while (mines_found < n):
+        revealed = False
+        assignment set = [] # set of Assignment tuples that can grow over time in the iteration. Tuple that holds : (cell location, assignment (0 or 1)) ) 0 is safe and 1 is mine
+        
+        #INFERENCE STEP
+        for keyA in KB:
+            for keyB in KB:
+                if keyA == keyB:
+                    continue
+                --check subtraction of 2 sets: (2 conditions, intersect and len or subtraction)
+                    #Note make an object where the set elements are comparable 
+                    eq1 = KB.get(keyA)
+                    eq2 = KB.get(keyB)
+                    if len(eq1.intersect(eq2)) > 0:
+                    eq3 = eq1.union(eq2)- eq2.intersection(eq1)
+                    if len(eq3) <= min{len(eq1), len(eq2)}:
+                        --check len:
+                            case 1: len = 1
+                                    - reveal first and then create assignment set? or flip?? idk the benefit (most likely going to add to assignment set and then reveal in second loop)
+                            case 2: len = 2
+                                    - call heuristic function to deal with that to get an assignemnt set
+                                        - if assignment set len == 0
+                                            - create new clue and add to KB
+                                case 3: len > 2:
+                                    - call heuristic to try to get an assignment set
+                                    - add new clue to KB
+
+                        
+
+        
+        #REDUCE KNOWLEDGE BASE
+       
+        #Stores assignment set for final stage of decision making
+        assignment_set_copy = assignment_set
+
+        #loop until our assignment set is empty, this will avoid any case where an assignment reduction casues a new assignment. In this case we can just add the new one back to our assignment set
+        if len(assignment_set) > 0:
+            revealed = true
+        while len(assignment_set) > 0
+            for keyC in KB:
+                eq = KB.get(keyC)
+                #2 options, use intersect or just nest the loops. Probably going with nesting because we are dealing with 2 different types of objects??
+                for assignment in assignment_set:
+                    if assignment in eq:
+                        if assignment.mine:
+                            keyC.clue -= 1
+                            identified_mines.append(assignment.location)
+                            mines_found  += 1
+
+                        eq.remove(assignment) #position of this statement and the above subject to change
+                        
+                        if len(eq) == 0:
+                            KB.remove(keyC)
+                        if len(eq) == 1 or 2:
+                            call heuristic
+                            new_set = return value from heuristic
+                            assignment_set.add(new_set)
+                            assignment_set_copy.add(new_set)
+
+                    
+                    
+
+        #DECISION STEP: REVEAL ASSIGNMENTS
+
+        clue_counter = len(KB)
+        for assignment in assignment_set_copy:
+        if assignment.safe:
+            location = assignment.location 
+
+            x = location[0]
+            y = location[1]
+            board[x][y].visited = 1
+            clue_temp = getClue(location)
+            clue = clue_temp - revealedMines(location)
+            hiddenNeighbors = getHiddenNeighbors(location)
+            
+            
+            #This will be objects. Could take up multiple lines of code to make them into objects though.
+            #Will be hashed based on location
+            eq = set(hiddenNeighbors) 
+
+            clue_counter += 1
+            KB.add((clue_counter,clue), eq)
+
+
+    #RANDOM ASSIGNMENT
+
+    if not revealed:
+            
+        remainingCells = set()
+        for r in range(len(minMap)):
+            for c in range(len(minMap)):
+                if  minMap[r][c].visited == 0:
+                    remainingCells.add(minMap[r][c].location)
+
+        if len(remainingCells) > 0:
+            random_location  = random.choice(tuple(remainingCells))
+            xRand = random_location[0]
+            yRand = random_location[1]
+            random_cell = minMap[xRand][yRand]
+            if random_cell.safe:
+                minMap[xRand][yRand].visited = 1
+                ---#Create equation for the Cell---
+            else:
+                minMap[xRand][yRand].visited = -1
+                tripped_mines.append(random_cell.location)
+                ---#Update KB---
+                mines_found += 1
+        else:
+            break
+
+    printTimeSteps(board,d)
+
+    return (identified_mines,tripped_mines)
+
+          
+--end Tejas PsuedoCode
+
+
+        
+                
+            
+                
+
+        
+                                
+
+
+'''
