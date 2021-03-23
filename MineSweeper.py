@@ -1,10 +1,11 @@
 import random
-
+from sympy import * 
+import numpy as np
 
 row = [-1, -1, -1, 0, 0, 1, 1, 1]
 col = [-1, 0, 1, -1, 1, -1, 0, 1]
-d = 9
-n = 10
+d = 5
+n = 4
 
 
 class Variable:
@@ -17,6 +18,24 @@ class Variable:
         return self.location == other.location
     def __hash__(self):
         return hash(self.location)
+
+    def __repr__(self):
+        return str(self.location)
+
+class Key:
+    def __init__(self,location,clue_count,clue):
+        self.location = location
+        self.clue = clue
+        self.clue_count = clue_count
+
+    def __eq__(self, other):
+        return self.clue == other.clue and self.clue_count == other.clue_count and self.location == other.location
+
+    def __hash__(self):
+        return self.clue_count
+
+    def __repr__(self):
+        return str((self.location,self.clue,self.clue_count))
      
 class Cell:
     def __init__(self, safe, revealedMines, clue, numSafeNeighbors, numHiddenSquares, visited, location):
@@ -276,7 +295,7 @@ def heuristic_assignments(KB,board,eq,clue):
     #Checks if there is any possible assignment for variables based on length. To understand: Use A  + B = Clue val and A - B = Clue val for length = 2 and generate all possible combinations for 0 and 1
     assignment_set = []
     #--Based on length of eq, return possible assignments for variables if any
-
+    #print("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     if len(eq) == 1: 
         variable = None
         for e in eq:
@@ -292,7 +311,7 @@ def heuristic_assignments(KB,board,eq,clue):
     elif len(eq) == 2:
         negative_counter = 0
         for e in eq:
-            negative_counter += 1 if e.negative == False else 0
+            negative_counter += 1 if e.isNegative == True else 0
 
         if clue == 0:
             if negative_counter == 0 or negative_counter == 2:
@@ -307,8 +326,8 @@ def heuristic_assignments(KB,board,eq,clue):
         if clue == 1:
             if negative_counter == 1:
                 for e in eq:
-                    if e.negative:
-                        e.assignmnet = 0
+                    if e.isNegative:
+                        e.assignment = 0
                     else:
                         e.assignment = 1
                     
@@ -320,26 +339,32 @@ def heuristic_assignments(KB,board,eq,clue):
                 assignment_set.append(e)
 
     elif len(eq) > 2:
+        if clue == 0:
+            for e in eq:
+                assignment_set.append(e)
+            return assignment_set
         negative_counter = 0
         for e in eq:
-            if e.negative == False:
+            if e.isNegative == True:
                 negative_counter  += 1 
 
         if negative_counter == len(eq):
             for e in eq:
-                e.assignemnt = 0
+                e.assignment = 0
                 assignment_set.append(e)
 
 
 
     return assignment_set
 
-
-def updateKB(KB,board,location,safe,identified_mines,mines_found):
+#REMEMBER TO CHANGE THIS TO THE UPDATED ONE
+def updateKB(KB,board,location,safe,identified_mines,mines_found): 
     var = None
     found = False
     #Finds Variable associated with location
-    for key in KB:
+    to_remove = []
+    for key in KB: 
+       
         eq = KB[key]
         for e in eq:
             if e.location == location:
@@ -348,185 +373,210 @@ def updateKB(KB,board,location,safe,identified_mines,mines_found):
                     break
                 else:
                     eq.remove(e)
-                    key[1] -= 1
+                    key.clue-=1
                     break
         if len(eq) == 0:
-            KB.pop(key,None)
-        else:
-            assignment_set = heuristic_assignments(KB,board,eq,key.clue)
-            assignment_set_copy = assignment_set
-
-        #loop until our assignment set is empty, this will avoid any case where an assignment reduction casues a new assignment. In this case we can just add the new one back to our assignment set
-        if len(assignment_set) > 0:
-            revealed = True
-        while len(assignment_set) > 0:
-          
-            for keyC in KB:
-                eq = KB.get(keyC)
-                #2 options, use intersect or just nest the loops. Probably going with nesting because we are dealing with 2 different types of objects??
-                    #--update: utilize same object for assignment sets and KB equation objects. easier that way
-
-                for assignment in assignment_set:
-                    if assignment in eq:
-                        if assignment.assignmnet == 1:
-                            keyC.clue -= 1
-                            identified_mines.append(assignment.location)
-                            board[assignment.location[0]][assignment.location[1]] == 2
-                            mines_found  += 1
-
-                        eq.remove(assignment) #position of this statement and the above subject to change
-                        
-                        if len(eq) == 0:
-                            KB.remove(keyC)
-                        if len(eq) == 1 or 2:
-                            in_set_already = False
-
-                            #Prevents double assignmnets 
-                            for e in eq:
-                                if e in assignment_set:
-                                    in_set_already = True
-                                    break
-                            
-                            if not in_set_already:
-                               # call heuristic
-                                #new_set = return value from heuristic
-                                new_set = heuristic_assignments(KB,board,eq,keyC.clue)
-                                assignment_set.extend(new_set)
-                                assignment_set_copy.extend(new_set)
+            to_remove.append(key)
+       
+    for r in to_remove:
+        KB.pop(r)
 
     return (KB,identified_mines,mines_found)
                 
-            
+ 
+def create_cells_set(d):
+    cells_set = set()
+    for i in range(d):
+        for j in range(d):
+            cells_set.add((i,j))
 
+    return cells_set
+
+def make_basic_inferences(KB,board,eq,key, identified_mines,inferenced_cells):
     
+    key_location = key.location
+    for i in range(len(board)):
+        for j in range(len(board)):
+            if board[i][j].location == key_location:
+                cell = board[i][j]
+    assignment_set = []
+    
+    #MAKE BASIC INFERENCES USING INFERENCE IF STATEMENTS
+    if cell.visited == 1 and not cell.location in inferenced_cells:
+        
+        cell.clue = getClue(board,cell)
+        cell.revealedMines =  revealedMines(board, cell)
+        cell.numHiddenSquares =  hiddenCells(board, cell)
+        neighbors = getNeighbors(board,cell)
+        cell.numSafeNeighbors = revealedSafeNeighbors(board, cell)
+        
+        if (cell.clue - cell.revealedMines == cell.numHiddenSquares):
+           
+            neighbors = getNeighbors(board,cell)
+            
+            for c in neighbors:
+                print("all mines")
+                if c.visited == 0:
+                    c.visited = 2
+                    identified_mines.append(c.location)
+                    
+                    assignment_set.append(Variable(c.location,None,1))
+            inferenced_cells.append(cell.location)
+            revealed = True
+
+            #added = True
+           # print("random i val check: ", end = ' ')
+           # print(i)
+
+        elif ((len(neighbors)- cell.clue) - cell.numSafeNeighbors == cell.numHiddenSquares):
+            print("all safe")
+            for c in neighbors:
+               
+                if c.visited == 0 :
+                    c.visited = 1
+                   
+                    assignment_set.append(Variable(c.location,None,0))
+            inferenced_cells.append(cell.location)
+
+    return (assignment_set,identified_mines,inferenced_cells)
+
+#ADVANCED INFERENCES USING GAUSSIAN ELIMINATION
+def make_advanced_inferences(KB,board,matrix):
+    n = np.array(matrix)
+    M = Matrix(n) 
+ 
+    #Returns rref matrix and pivot columns as tuple
+    temp_tuple = M.rref()
+
+    #extracts matrix from tuple
+    reduced_matrix = np.array(temp_tuple[0])
+    print("regular matrix: ")
+    print(np.array(M))
+    print("reduced matrix")
+    print(reduced_matrix)
+    #ADD LOCATIONS OF ANY ASSIGNMENTS IN LOCATION LIST
+    locations_list = []
+    for i in range(len(reduced_matrix)):
+        
+        temp_list = []
+        for j in range(len(reduced_matrix)):
+            if reduced_matrix[i][j] == 1:
+                temp_list.append(((i,j),reduced_matrix[i][ len(reduced_matrix)-1]))
+        
+        if len(temp_list) == 1:
+            locations_list.extend(temp_list)
+    
+    #ADD LOCATIONS LIST TO VARIABLES LIST
+    var_list = []
+    for l in locations_list:
+        location = l[0]
+        assignment = l[1]
+        var = Variable(location,None,assignment)
+        var_list.append(var)
+
+    return var_list
 
 
-def solver2(KB, board, d, n):
-
+#ADVANCED AGENT 
+def matrix_advanced_agent(KB,board,d,n):
+    cells_set = create_cells_set(d)
     identified_mines = []
     tripped_mines = []
-    visited = set()
-    inferenced_cells = set()
     mines_found = 0
+    clue_counter = 0
     while (mines_found < n):
         revealed = False
-        assignment_set = [] # set of Variables Objects that can grow over time in the iteration. Tuple that holds : (cell location, assignment (0 or 1)) ) 0 is safe and 1 is mine
-        
+        assignment_set = []
+        matrix = []
+
         #INFERENCE STEP
-        for keyA in KB:
-            for keyB in KB:
-               
-                if keyA == keyB:
-                    continue
-                if KB.get(keyA).intersect(KB.get(keyA)):
-                    #Trim KB to make sure it only holds unique equations
-                    KB.remove(keyB)
-                    continue
-                #--check subtraction of 2 sets: (2 conditions, intersect and len or subtraction)
-                    #Note make an object where the set elements are comparable 
-                    eq1 = KB.get(keyA)
-                    eq2 = KB.get(keyB)
-                    if len(eq1.intersect(eq2)) > 0:
-                        
-                        #Check which clue is bigger
-                       
-                   
-                         #Create Temp set of variables before assignmnet of positive or negative signs
-                        eqt = eq1.union(eq2)- eq2.intersection(eq1)  #Subtraction implementation
-                        eq3 = set()
-                        sent_clue = abs(keyA - keyB)
-                        if keyA[1] > keyB[1]:
-                            for e in eqt:
-                                if e in eq2:
-                                    #Create Variable class : (location,sign(True = +, False = -), assignment)
-                                    eq3.add(Variable(e.location,False,None))
-                                elif e in eq1:
-                                    eq3.add(Variable(e.location,True,None))
-                        else:
-                             for e in eqt:
-                                if e in eq1:
-                                    #Create Variable class : (location,sign(True = +, False = -), assignment)
-                                    eq3.add(Variable(e.location,False,None))
-                                elif e in eq2:
-                                    eq3.add(Variable(e.location,True,None))
+        inferenced_cells = []
+        for key in KB:
+            inference_type = -1
+            eq = KB[key]
+            beginning_len = len(assignment_set)
+            (basic_assignments,t_i_mines,i_cells) = (make_basic_inferences(KB,board,eq,key,identified_mines,inferenced_cells))
+            inferenced_cells.extend(i_cells)
+            assignment_set.extend(basic_assignments)
+            identified_mines.extend(t_i_mines)
 
-                        if len(eq3) <= min(len(eq1), len(eq2)): 
-                            #--check len:
-                                #case 1: len = 1
-                                        #- reveal first and then create assignment set? or flip?? idk the benefit (most likely going to add to assignment set and then reveal in second loop)
-                                #case 2: len = 2
-                                        #- call heuristic function to deal with that to get an assignemnt set
-                            temp_set = heuristic_assignments(KB,board,eq3,sent_clue)
-                            if len(temp_set) == 0:
-                                clue_count = len(KB)
-                                KB.add((clue_count,sent_clue),eq3)
-                               
-                            else:
-                                assignment_set.extend(temp_set)
-                            
+            if len(assignment_set) > beginning_len:
+                print("---MADE BASIC INFERENCES---\n")
+                inference_type = 0
+                #ADD TO INFERENCED CELLS SET TO REMOVE LATER FROM KB 
+                inferenced_cells.append(key.location)
+                continue 
+            else:
+                #print("--MAKING ADVANCED INFERENCES--")
+                row = []
+                location_set = []
+                for e in eq:
+                    location_set.append(e.location)
+                for c in cells_set:
+                    row.append(0 if not c in location_set else 1)
+                row.append(key.clue)
 
-                        
-
+                matrix.append(row)
         
-        #REDUCE KNOWLEDGE BASE
-       
-        #Stores assignment set for final stage of decision making
-        assignment_set_copy = assignment_set
-
-        #loop until our assignment set is empty, this will avoid any case where an assignment reduction casues a new assignment. In this case we can just add the new one back to our assignment set
+        advanced_inferences = make_advanced_inferences(KB,board,matrix)
+        assignment_set.extend(advanced_inferences)
         if len(assignment_set) > 0:
+            if inference_type == -1:
+                inference_type = 1
+                print("--MADE ADVANCED INFERENCES--\n")
+                
+            print("--FOUND ASSIGNMENTS FOR VARIABLES--")
             revealed = True
-        while len(assignment_set) > 0:
-          
+
+        for k in KB:
+            print((k,KB[k]))
+        #TO DELETE LIST
+        to_delete = []
+        for k in KB:
+            if k.location in inferenced_cells:
+                to_delete.append(k)
+
+        for t in to_delete:
+            KB.pop(t)
+                
+           
+        #ASSIGNMENT STEP / REDUCTION STEP
+        to_remove = []
+        for assignment in assignment_set: 
+            to_remove  = []
             for keyC in KB:
                 eq = KB.get(keyC)
-                #2 options, use intersect or just nest the loops. Probably going with nesting because we are dealing with 2 different types of objects??
-                    #--update: utilize same object for assignment sets and KB equation objects. easier that way
+               
+                if assignment in eq:
+                    if assignment.assignment == 1:
+                        keyC.clue -= 1
+                        identified_mines.append(assignment.location)
+                        x = assignment.location[0]
+                        y = assignment.location[1]
+                        board[x][y].visited = 2
+                        mines_found  += 1
 
-                for assignment in assignment_set:
-                    if assignment in eq:
-                        if assignment.assignmnet == 1:
-                            keyC.clue -= 1
-                            identified_mines.append(assignment.location)
-                            board[assignment.location[0]][assignment.location[1]] == 2
-                            mines_found  += 1
+                    eq.remove(assignment) #position of this statement and the above subject to change
+                   
+                    if len(eq) == 0:
+                        to_remove.append(keyC)
+                       
 
-                        eq.remove(assignment) #position of this statement and the above subject to change
-                        
-                        if len(eq) == 0:
-                            KB.remove(keyC)
-                        if len(eq) == 1 or 2:
-                            in_set_already = False
+            for r in to_remove:
+                KB.pop(r)
 
-                            #Prevents double assignmnets 
-                            for e in eq:
-                                if e in assignment_set:
-                                    in_set_already = True
-                                    break
-                            
-                            if not in_set_already:
-                               # call heuristic
-                                #new_set = return value from heuristic
-                                new_set = heuristic_assignments(KB,board,eq,keyC.clue)
-                                assignment_set.extend(new_set)
-                                assignment_set_copy.extend(new_set)
-
-                    
-                    
-
-        #DECISION STEP: REVEAL ASSIGNMENTS
-
-        clue_counter = len(KB)
-        for assignment in assignment_set_copy:
+        #REVEAL SAFE NEIGHBORS AND ADD TO KB
+        for assignment in assignment_set:
             if assignment.assignment == 0:
                 location = assignment.location 
 
                 x = location[0]
                 y = location[1]
                 board[x][y].visited = 1
-
-                clue_temp = getClueV2(location)
+                
+                clue_temp = getClueV2(board,location)
                 clue = clue_temp - revealedMinesV2(board,location)
+                board[x][y].clue = clue
                 hiddenNeighbors = getHiddenNeighbors(board,location)
                 
                 
@@ -541,14 +591,15 @@ def solver2(KB, board, d, n):
                 eq = set(variable_set) 
 
                 clue_counter += 1
-                KB.add((clue_counter,clue), eq)
-                print(KB)
-
+                add_key = Key(location,clue_counter,clue)
+                KB[add_key] = eq
         
-        #RANDOM ASSIGNMENT
+        #CHECK MINES
+        if mines_found >= n:
+            break
 
+        #RANDOM ASSIGHNEMENT
         if not revealed:
-           
             remainingCells = set()
             for r in range(len(board)):
                 for c in range(len(board)):
@@ -565,12 +616,14 @@ def solver2(KB, board, d, n):
                 x = location[0]
                 y = location[1]
                 if random_cell.safe:
-                    board[xRand][yRand].visited = 1
                     
                     board[x][y].visited = 1
+                   
 
-                    clue_temp = getClueV2(board,location)
-                    clue = clue_temp - revealedMinesV2(board,location)
+                    clue_temp = getClueV2(board,location) 
+                   
+                    clue = clue_temp - revealedMinesV2(board,location) 
+                    board[x][y].clue = clue
                     hiddenNeighbors = getHiddenNeighbors(board,location)
                 
                     (KB,identified_mines,mines_found) = updateKB(KB,board,location,False,identified_mines,mines_found)
@@ -583,9 +636,10 @@ def solver2(KB, board, d, n):
                         variable_set.append(v)
 
                     eq = set(variable_set) 
-
+                    
                     clue_counter += 1
-                    KB[(clue_counter,clue)] = eq
+                    key = Key(location,clue_counter,clue)
+                    KB[key] = eq
                         #---#Create equation for the Cell---
                             #Includes creating new instance of Variable object (see line 443 for example)
                             #and adding it to the KB by incrementing the clue counter
@@ -593,81 +647,30 @@ def solver2(KB, board, d, n):
                     board[xRand][yRand].visited = -1
                     tripped_mines.append(random_cell.location)
                     (KB,identified_mines,mines_found) = updateKB(KB,board,location,False,identified_mines,mines_found)
-                    mines_found += 1
+                    mines_found += 1  
+        
             else:
                 break
+        input("------------------------------------------------------------------------------------------>")
+      
+        printTimeSteps(board,d)  
+        print("Identified Mines: ", end = ' ')
+        print(identified_mines)
+        print("Tripped Mines: ", end = ' ')
+        print(tripped_mines)
+        print(str(mines_found) + " / " + str(n) + " mines found")
+        
 
-    printTimeSteps(board,d)
-   
+
     return (identified_mines,tripped_mines)
 
-'''
-# -- Advanced Agent--
-def kbEquation(minMap, cell):
-    (neighbors, clue) = getNeighborsandClue(minMap, cell)
-    cell.clue = clue
-    KB[cell] = neighbors
-    """
-    retrie neighbor locations
-    retrieve clue value
-    create dictionary element
-        key: Object containing location and clue 
-        value: set of neighbors (objects containing locations)"""
-    return 
-def solver2(minMap, d, n):
-    switch = 0 #used for breaking out of loop when you find a 0 (safe) value
-    numMines = n
+        
     
-    while (numMines > 0):
-        switch = 0
-       
-        while (switch != 1): #while you have not found a new spot to uncover 
-            
-            for keyA in KB:
-                for keyB in KB:
-                    if (not keyA == keyB):
-                        keySetA = KB[keyA] #gets the set of neighbors from the equation
-                        keySetB = KB[keyB] #gets the set of neighbors from the equation
-                        if (len(keySetB) >= len(keySetA) and keyB.clue > keyA.clue): #checks to make sure B has a larger sets size and clue value
-                            newSet = keySetB.difference(keySetB) #gets the difference in sets
-                            newClue = (keyB.clue - keyA.clue) #gets the difference in clue values
-                        #if clue is 0 
-                        if (newClue == 0):
-                            for i in newSet:
-                                i.safe = True
-                        
-                        #if clue is 1
-                        if ((newClue/len(newSet) == 1):
-                            for i in newSet:
-                                i.safe = False 
-                        #if clue > 1
-                        """
-                        check to see if the length of KEYSetB is greater than keySetA and that KeyB clue is greater than KeyA clue
-                        if it is
-                            subtract keySetA from keySetB 
-                                *check length of subtraction to see if there was any difference
-                                create a new set (equation value)
-                            subtract KeyA clue from KeyB clue
-                                create a new clue (index value)
-                            create a new equation
-                            check if the clue == 0 or 1
-                                modify Map to reflect that
-                                if clue == 1
-                                    switch = 1
-                                        ***Implement:
-                                            chooses that value as the next location
-                                            creates a equation
-                                            
-                                else 
-                                    numMines -= 1
-                        if not 
-                            contiue over (**Don't want negative numbers)
-                        """
-                
-    
-'''
 
-board = createBoard(n,d)
+
+
+
+#board = createBoard(n,d)
 
 
 success_rate = []
@@ -677,7 +680,7 @@ counter = 0
 for i in range(1):
     minMap = createBoard(n, d)
     KB = {}
-    (identified, tripped) = solver2(KB,minMap, d, n)
+    (identified, tripped) = matrix_advanced_agent(KB,minMap,d,n)
    
     s1 = set(identified)
     s2  = set(tripped)
@@ -706,12 +709,13 @@ print(rate)
 ''
 '''
 '''
+'''
 print("Identified mines : ", end = '\t')
 print(identified)
 print("Tripped mines : ", end = '\t')
 print(tripped)
 '''
-
+'''
 
 '''
 
@@ -722,17 +726,44 @@ print(tripped)
 #--Tejas Pseudocode----
 
 
+def advanced_agent(KB,board,d,n):
+    identified_mines = []
+    tripped_mines = []
+    mines_found = 0
+    assignment_set = []
+    while (mines_found < n):
+        #ZERO CLUE STEP
+        (board,KB) = search_zero_clues(board,d,n)
+
+        for keyA in KB:
+
+            for keyB in KB:
+               
+                if keyA == keyB:
+                    continue
+               
+                #--check subtraction of 2 sets: (2 conditions, intersect and len or subtraction)
+                    #Note make an object where the set elements are comparable 
+                eq1 = KB[keyA]
+                eq2 = KB[keyB]
+                beginning_len = len(assignment_set)
+                assignment_set.extend(make_basic_inferences(KB,board,eq1,keyA))
+                assignment_set.extend(make_basic_inferences(KB,board,eq2,keyB))
+                if len(assignment_set) > beginning_len:
+                    print("---Made Basic Inferences and recieved assignments---")
+                    continue
+
+                if len(eq1) > len(eq2):
+                    if eq2.issubset(eq1):
+                        assignment_set.extend(make_advanced_inferences(KB,board,eq1,eq2,))
+              
+
 
           
 #--end Tejas PsuedoCode
 
 
         
-                
-            
-                
-
         
-                                
-
-
+                    
+            
