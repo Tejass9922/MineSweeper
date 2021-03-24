@@ -1,5 +1,5 @@
 import random
-from sympy import * 
+#from sympy import * 
 import numpy as np
 
 row = [-1, -1, -1, 0, 0, 1, 1, 1]
@@ -74,7 +74,7 @@ def populateMines(minMap, n, d):
 
     for i in range(len(minMap)):
         for j in range(len(minMap)):
-            print(minMap[i][j].safe, end = '\t')
+            print(minMap[i][j].safe, end= '\t')
         print('\n')
     return minMap
 
@@ -291,13 +291,14 @@ def solver(minMap, d, n):
 
     return (identified_mines,tripped_mines) 
 
-def update_advanced_KB(KB,board):
-    return KB
 
-def subset_solver(KB,board):
+
+def subset_solver(KB,board,clue_counter,inferenced_cells):
     flagged_mines = []
     threat_flag = []
     safe_neighbors = []
+    flagged_mines = []
+    anything_assigned = False
     for keyA in KB:
         for keyB in KB:
             if keyA == keyB:
@@ -314,7 +315,7 @@ def subset_solver(KB,board):
 
 
             if eq1.issubset(eq2):
-                eq3 = eq1.uniuon(eq2) - eq2.intersection(eq1)
+                eq3 = eq2.difference(eq1)
                 eq3_len = len(eq3)
                 clue_val_diff = abs(keyA_clue - keyB_clue)
                 if clue_val_diff == 0:
@@ -324,19 +325,113 @@ def subset_solver(KB,board):
                         x = location[0]
                         y = location[1]
                         board[x][y].visited = 1
-                
+                        var.assignment = 0
+                        anything_assigned = True
+                        safe_neighbors.append(var)
+                    
+                elif clue_val_diff == len(eq3):
+                    
+                    for var in eq3:
+                        location = var.location
+                        x = location[0]
+                        y = location[1]
+                        board[x][y].visited = 2
+                        var.assignment = 1
+                        anything_assigned= True
+                        flagged_mines.append(var)
+    
+    #FLAG MINES
+    for x in flagged_mines:
+        
+        for k in KB:
+            eq = KB[k]
+            for e in eq:
+                if e == x:
+                    if k.clue > 1:
+                        k.clue -= 1
+                        eq.remove(x)
+
+    
+    #REDUCE SAFE NEIGHBORS
+    for y in safe_neighbors:
+        for k in KB:
+            eq = KB[k]
+            for e in eq:
+                if e == x:
+                    eq.remove(x)
+
+    #ADD VARIABLES
+    
+    for s in safe_neighbors:
+        
+        if s.assignment == 0:
+            location = s.location 
+
+            x = location[0]
+            y = location[1]
+            board[x][y].visited = 1
+            
+            clue_temp = getClueV2(board,location)
+            clue = clue_temp - revealedMinesV2(board,location)
+            board[x][y].clue = clue
+            hiddenNeighbors = getHiddenNeighbors(board,location)
+            
+            
+            #This will be objects. Could take up multiple lines of code to make them into objects though.
+            #Will be hashed based on location
+            #Create new Variable objects for each of the hidden neighbors based on location
+            variable_set = []
+            for neighbor in hiddenNeighbors:
+                v = Variable(neighbor,False,None)
+                variable_set.append(v)
+
+            eq = set(variable_set) 
+
+            clue_counter += 1
+            add_key = Key(location,clue_counter,clue)
+            KB[add_key] = eq
 
 
+            
 
     for t in threat_flag:
         KB.pop(t)
         
 
+    return (KB,board,flagged_mines)
+
+#TODO- random_assignment / adding to KB
+def rebuild_KB(KB,board,inferenced_cells):
+    clue_counter = 0
+    for i in range(len(board)):
+        for j in range(len(board)):
+            if board[i][j].visited == 1 and not board[i][j].location in inferenced_cells:
+                location = (i,j)
+                clue_temp = getClueV2(board,location)
+                clue = clue_temp - revealedMinesV2(board,location)
+                board[x][y].clue = clue
+                hiddenNeighbors = getHiddenNeighbors(board,location)
+                
+                
+                #This will be objects. Could take up multiple lines of code to make them into objects though.
+                #Will be hashed based on location
+                #Create new Variable objects for each of the hidden neighbors based on location
+                variable_set = []
+                for neighbor in hiddenNeighbors:
+                    v = Variable(neighbor,False,None)
+                    variable_set.append(v)
+
+                eq = set(variable_set) 
+
+                clue_counter += 1
+                add_key = Key(location,clue_counter,clue)
+                KB[add_key] = eq
 
 
+    return KB
 
-    return ()
-def advanced_solver(KB,board,d,n):
+
+def advanced_solver(KB,minMap,d,n):
     identified_mines = []
     tripped_mines = []
     visited = set()
@@ -393,18 +488,17 @@ def advanced_solver(KB,board,d,n):
                
         if i >= n:
             break
-
+        '''
         if revealed:
-            KB = rebuild_KB(KB,board)
+            KB = rebuild_KB(KB,minMap,inferenced_cells)
         
         if not revealed:
-            (KB,board,assignments,flagged_mines) = subset_solver(KB,board)
+            (KB,minMap,flagged_mines,anything_assigned) = subset_solver(KB,minMap,inferenced_cells)
             identified_mines.extend(flagged_mines)
-            (KB,board,anything_assigned) = update_advanced_KB(KB,board,assignments)
             if anything_assigned:
                 revealed = True
             i += len(flagged_mines)
-        
+        '''
         
         if i>=n:
             break
@@ -825,7 +919,7 @@ counter = 0
 for i in range(1):
     minMap = createBoard(n, d)
     KB = {}
-    (identified, tripped) = solver(minMap,d,n)
+    (identified, tripped) = advanced_solver(KB,minMap,d,n)
    
     s1 = set(identified)
     s2  = set(tripped)
@@ -861,7 +955,6 @@ print("Tripped mines : ", end = '\t')
 print(tripped)
 '''
 '''
-
 '''
 
 
@@ -907,8 +1000,3 @@ def advanced_agent(KB,board,d,n):
           
 #--end Tejas PsuedoCode
 
-
-        
-        
-                    
-            
