@@ -1,13 +1,14 @@
 import random
-from sympy import * 
+#from sympy import * 
 import numpy as np
+from copy import deepcopy
 
 row = [-1, -1, -1, 0, 0, 1, 1, 1]
 col = [-1, 0, 1, -1, 1, -1, 0, 1]
-d = 5
-n = 4
+d = 6
+n = 9
 
-
+#[26, 51, 77, 102, 128, 154, 179, 205, 230]
 class Variable:
     def __init__(self,location,isNegative,assignment):
         self.location = location
@@ -74,7 +75,7 @@ def populateMines(minMap, n, d):
 
     for i in range(len(minMap)):
         for j in range(len(minMap)):
-            print(minMap[i][j].safe, end = '\t')
+            print(minMap[i][j].safe, end= '\t')
         print('\n')
     return minMap
 
@@ -149,7 +150,7 @@ def getHiddenNeighbors(board,location):
     for i in range(8):
         x = row[i] + location[0]
         y = col[i] + location[1]
-        if x >= 0 and x < n and y >=0 and y < n:
+        if x >= 0 and x < n and y >=0 and y < n and board[x][y].visited == 0:
             hiddenNeighbors.append((x,y))
 
     return hiddenNeighbors
@@ -200,7 +201,7 @@ def revealedSafeNeighbors(board, cell):
     return revealedSafeNeighbors
 
 
-
+#BASIC INFERENCE ALGORITHM
 def solver(minMap, d, n):
     identified_mines = []
     tripped_mines = []
@@ -225,7 +226,7 @@ def solver(minMap, d, n):
                     cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
                     
                     if (cell.clue - cell.revealedMines == cell.numHiddenSquares):
-                        print((cell.location, cell.clue,cell.revealedMines, cell.numHiddenSquares, cell.numSafeNeighbors))
+                    
                         print("all mines")
                         neighbors = getNeighbors(minMap,cell)
                         
@@ -258,6 +259,7 @@ def solver(minMap, d, n):
                
         if i >= n:
             break
+        
         if not revealed:
             print("random cell adding")
             #print("not added")
@@ -289,7 +291,473 @@ def solver(minMap, d, n):
         printTimeSteps(minMap,d)
     
 
-    return (identified_mines,tripped_mines)     
+    return (identified_mines,tripped_mines) 
+
+def basic_solver_play_by_play(minMap, d, n):
+    identified_mines = []
+    tripped_mines = []
+    visited = set()
+    inferenced_cells = set()
+    i = 0
+    while (i < n):
+        
+        revealed = False
+        
+        for row in range(len(minMap)):
+            for col in range(len(minMap)):
+                cell = minMap[row][col] 
+                
+                #inference if statements 
+                if cell.visited == 1 and not cell.location in inferenced_cells:
+                   
+                    cell.clue = getClue(minMap,cell)
+                    cell.revealedMines =  revealedMines(minMap, cell)
+                    cell.numHiddenSquares =  hiddenCells(minMap, cell)
+                    neighbors = getNeighbors(minMap,cell)
+                    cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
+                    
+                    if (cell.clue - cell.revealedMines == cell.numHiddenSquares):
+                    
+                        print("all mines")
+                        neighbors = getNeighbors(minMap,cell)
+                        
+                        for c in neighbors:
+                          
+                            if c.visited == 0:
+                                c.visited = 2
+                                identified_mines.append(c.location)
+                                #inferenced_cells.add(c.location)
+                                i += 1
+                        inferenced_cells.add(cell.location)
+                        revealed = True
+
+                        #added = True
+                        print("random i val check: ", end = ' ')
+                        print(i)
+
+                    elif ((len(neighbors)- cell.clue) - cell.numSafeNeighbors == cell.numHiddenSquares):
+                        print("all safe")
+                        for c in neighbors:
+                            print((c.location, c.visited, minMap[c.location[0]][c.location[1]].location))
+                            if c.visited == 0 :
+                                c.visited = 1
+                                #inferenced_cells.add(c.location)
+                        inferenced_cells.add(cell.location)
+                        revealed = True
+
+                
+                       
+               
+        if i >= n:
+            break
+        
+        if not revealed:
+            print("random cell adding")
+            #print("not added")
+            remainingCells = set()
+            for r in range(len(minMap)):
+                for c in range(len(minMap)):
+                    if  minMap[r][c].visited == 0:
+                        remainingCells.add(minMap[r][c].location)
+
+            if len(remainingCells) > 0:
+                random_location  = random.choice(tuple(remainingCells))
+                xRand = random_location[0]
+                yRand = random_location[1]
+                random_cell = minMap[xRand][yRand]
+                if random_cell.safe:
+                    minMap[xRand][yRand].visited = 1
+                    #visited.add(minMap[xRand][yRand].visited)
+                    #inferenced_cells.add(minMap[xRand][yRand].visited)
+                else:
+                    minMap[xRand][yRand].visited = -1
+                    tripped_mines.append(random_cell.location)
+                    inferenced_cells.add(minMap[xRand][yRand].location)
+                    i += 1
+            else:
+                break
+
+        
+        input("---------------------------------------------------------------------------->")
+        printTimeSteps(minMap,d)
+    
+
+    return (identified_mines,tripped_mines)
+
+
+
+def subset_solver(KB,board,clue_counter,inferenced_cells):
+    flagged_mines = []
+    threat_flag = []
+    safe_neighbors = []
+    flagged_mines = []
+    anything_assigned = False
+    for keyA in KB:
+        for keyB in KB:
+            if keyA == keyB:
+                continue
+
+            eq1 = KB[keyA]
+            eq2 = KB[keyB]
+
+            keyA_clue = keyA.clue
+            keyB_clue = keyB.clue
+            if eq1==eq2 and not (keyA in threat_flag):
+                threat_flag.append(keyA)
+                continue
+
+
+            if eq1.issubset(eq2):
+                eq3 = eq2.difference(eq1)
+                eq3_len = len(eq3)
+                clue_val_diff = abs(keyA_clue - keyB_clue)
+                if clue_val_diff == 0:
+                    print("---STRONG INFERENCE MADE FOR SAFE NEIGHBORS---")
+                   
+                    print("eq1: " + str(eq1))
+                    print("eq2: " + str(eq2))
+                    print("eq3: " + str(eq3))
+                    print("clue_difference: " + str(clue_val_diff))
+                    for var in eq3:
+                        location = var.location
+                        x = location[0]
+                        y = location[1]
+                        board[x][y].visited = 1
+                        var.assignment = 0
+                        anything_assigned = True
+                        safe_neighbors.append(var)
+                    
+                elif clue_val_diff == len(eq3):
+                    print("---STRONG INFERENCE MADE FOR POTENTIAL MINES---")
+                    print("eq1: " + str(eq1))
+                    print("eq2: " + str(eq2))
+                    print("eq3: " + str(eq3))
+                    print("clue_difference: " + str(clue_val_diff))
+                    for var in eq3:
+                        location = var.location
+                        x = location[0]
+                        y = location[1]
+                        board[x][y].visited = 2
+                        var.assignment = 1
+                        anything_assigned= True
+                        flagged_mines.append(var)
+    
+    #FLAG MINES
+    
+    for xf in flagged_mines:
+        for k in KB:
+            eq = KB[k]
+            if xf in eq:
+                k.clue -= 1
+     
+    for xd in flagged_mines:
+        for k in KB:
+            eq = KB[k]
+            eq.discard(xd)
+    
+    
+    #REDUCE SAFE NEIGHBORS
+    
+
+    for yn in safe_neighbors:
+        for k in KB:
+            eq = KB[k]
+            eq.discard(yn)
+
+    #CHECK FOR EMPTY KEYS
+
+    #ADD VARIABLES
+    
+   
+    for s in safe_neighbors:
+        
+        if s.assignment == 0:
+            location = s.location 
+
+            x = location[0]
+            y = location[1]
+            board[x][y].visited = 1
+            
+            clue_temp = getClueV2(board,location)
+            clue = clue_temp - revealedMinesV2(board,location)
+            board[x][y].clue = clue
+            hiddenNeighbors = getHiddenNeighbors(board,location)
+            
+            
+            #This will be objects. Could take up multiple lines of code to make them into objects though.
+            #Will be hashed based on location
+            #Create new Variable objects for each of the hidden neighbors based on location
+            variable_set = []
+            for neighbor in hiddenNeighbors:
+                v = Variable(neighbor,False,None)
+                variable_set.append(v)
+
+            eq = set(variable_set) 
+
+            clue_counter += 1
+            add_key = Key(location,clue_counter,clue)
+            KB[add_key] = eq
+
+
+    for keyA in KB:
+        for keyB in KB:
+            eq1 = KB[keyA]
+            eq2 = KB[keyB]
+            if keyA == keyB:
+                continue
+            if eq1 == eq2 and not (keyA) in threat_flag:
+                threat_flag.append(keyA)
+
+
+    for t in threat_flag:
+        KB.pop(t)
+
+        
+
+    return (KB,board,flagged_mines,anything_assigned)
+
+#TODO- random_assignment / adding to KB
+def rebuild_KB(KB,board,inferenced_cells):
+    KB = {}
+    clue_counter = 0
+    for i in range(len(board)):
+        for j in range(len(board)):
+            if board[i][j].visited == 1 and not board[i][j].location in inferenced_cells:
+                location = (i,j)
+                clue_temp = getClueV2(board,location)
+                clue = clue_temp - revealedMinesV2(board,location)
+                board[i][j].clue = clue_temp
+                hiddenNeighbors = getHiddenNeighbors(board,location)
+                
+                
+                #This will be objects. Could take up multiple lines of code to make them into objects though.
+                #Will be hashed based on location
+                #Create new Variable objects for each of the hidden neighbors based on location
+                variable_set = []
+                for neighbor in hiddenNeighbors:
+                    v = Variable(neighbor,False,None)
+                    variable_set.append(v)
+
+                eq = set(variable_set) 
+
+                clue_counter += 1
+                add_key = Key(location,clue_counter,clue)
+                KB[add_key] = eq
+
+
+    return KB
+
+
+def advanced_solver(KB,minMap,d,n):
+    identified_mines = []
+    tripped_mines = []
+    visited = set()
+    inferenced_cells = set()
+    i = 0
+    clue_counter = 0
+    while (i < n):
+        
+        revealed = False
+        
+        for row in range(len(minMap)):
+            for col in range(len(minMap)):
+                cell = minMap[row][col] 
+                
+                #inference if statements 
+                if cell.visited == 1 and not cell.location in inferenced_cells:
+                   
+                    cell.clue = getClue(minMap,cell)
+                    cell.revealedMines =  revealedMines(minMap, cell)
+                    cell.numHiddenSquares =  hiddenCells(minMap, cell)
+                    neighbors = getNeighbors(minMap,cell)
+                    cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
+                    
+                    if (cell.clue - cell.revealedMines == cell.numHiddenSquares):
+                       
+                        print("all mines")
+                        neighbors = getNeighbors(minMap,cell)
+                        
+                        for c in neighbors:
+                          
+                            if c.visited == 0:
+                                c.visited = 2
+                                identified_mines.append(c.location)
+                                #inferenced_cells.add(c.location)
+                                i += 1
+                        inferenced_cells.add(cell.location)
+                        revealed = True
+
+                        #added = True
+                        print("random i val check: ", end = ' ')
+                        print(i)
+
+                    elif ((len(neighbors)- cell.clue) - cell.numSafeNeighbors == cell.numHiddenSquares):
+                        print("all safe")
+                        for c in neighbors:
+                            print((c.location, c.visited, minMap[c.location[0]][c.location[1]].location))
+                            if c.visited == 0 :
+                                c.visited = 1
+                                #inferenced_cells.add(c.location)
+                        inferenced_cells.add(cell.location)
+                        revealed = True
+
+                
+                       
+               
+        if i >= n:
+            break
+        
+        
+        if revealed:
+            print("---REBUILDING KNOWLEDGE BASE---")
+            KB = rebuild_KB(KB,minMap,inferenced_cells)
+            clue_counter = len(KB)
+            for k in KB:
+                print((k,KB[k]))
+        
+        if not revealed:
+            (KB,minMap,flagged_mines,anything_assigned) = subset_solver(KB,minMap,clue_counter,inferenced_cells)
+            identified_mines.extend(flagged_mines)
+            if anything_assigned:
+                revealed = True
+            i += len(flagged_mines)
+        
+        if i>=n:
+            break
+        if not revealed:
+            print("random cell adding")
+            #print("not added")
+            remainingCells = set()
+            for r in range(len(minMap)):
+                for c in range(len(minMap)):
+                    if  minMap[r][c].visited == 0:
+                        remainingCells.add(minMap[r][c].location)
+
+            if len(remainingCells) > 0:
+                random_location  = random.choice(tuple(remainingCells))
+                xRand = random_location[0]
+                yRand = random_location[1]
+                random_cell = minMap[xRand][yRand]
+                if random_cell.safe:
+                    minMap[xRand][yRand].visited = 1
+                    #visited.add(minMap[xRand][yRand].visited)
+                    #inferenced_cells.add(minMap[xRand][yRand].visited)
+                else:
+                    minMap[xRand][yRand].visited = -1
+                    tripped_mines.append(random_cell.location)
+                    inferenced_cells.add(minMap[xRand][yRand].location)
+                    i += 1
+            else:
+                break
+        #input("---------------------------------------->")
+        printTimeSteps(minMap,d)
+
+    return (identified_mines,tripped_mines)
+def advanced_solver_play_by_play(KB,minMap,d,n):
+    identified_mines = []
+    tripped_mines = []
+    visited = set()
+    inferenced_cells = set()
+    i = 0
+    clue_counter = 0
+    while (i < n):
+        
+        revealed = False
+        
+        for row in range(len(minMap)):
+            for col in range(len(minMap)):
+                cell = minMap[row][col] 
+                
+                #inference if statements 
+                if cell.visited == 1 and not cell.location in inferenced_cells:
+                   
+                    cell.clue = getClue(minMap,cell)
+                    cell.revealedMines =  revealedMines(minMap, cell)
+                    cell.numHiddenSquares =  hiddenCells(minMap, cell)
+                    neighbors = getNeighbors(minMap,cell)
+                    cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
+                    
+                    if (cell.clue - cell.revealedMines == cell.numHiddenSquares):
+                       
+                        print("all mines")
+                        neighbors = getNeighbors(minMap,cell)
+                        
+                        for c in neighbors:
+                          
+                            if c.visited == 0:
+                                c.visited = 2
+                                identified_mines.append(c.location)
+                                #inferenced_cells.add(c.location)
+                                i += 1
+                        inferenced_cells.add(cell.location)
+                        revealed = True
+
+                        #added = True
+                        print("random i val check: ", end = ' ')
+                        print(i)
+
+                    elif ((len(neighbors)- cell.clue) - cell.numSafeNeighbors == cell.numHiddenSquares):
+                        print("all safe")
+                        for c in neighbors:
+                            print((c.location, c.visited, minMap[c.location[0]][c.location[1]].location))
+                            if c.visited == 0 :
+                                c.visited = 1
+                                #inferenced_cells.add(c.location)
+                        inferenced_cells.add(cell.location)
+                        revealed = True
+
+                
+                       
+               
+        if i >= n:
+            break
+        
+        
+        if revealed:
+            print("---REBUILDING KNOWLEDGE BASE---")
+            KB = rebuild_KB(KB,minMap,inferenced_cells)
+            clue_counter = len(KB)
+            for k in KB:
+                print((k,KB[k]))
+        
+        if not revealed:
+            (KB,minMap,flagged_mines,anything_assigned) = subset_solver(KB,minMap,clue_counter,inferenced_cells)
+            identified_mines.extend(flagged_mines)
+            if anything_assigned:
+                revealed = True
+            i += len(flagged_mines)
+        
+        if i>=n:
+            break
+        if not revealed:
+            print("random cell adding")
+            #print("not added")
+            remainingCells = set()
+            for r in range(len(minMap)):
+                for c in range(len(minMap)):
+                    if  minMap[r][c].visited == 0:
+                        remainingCells.add(minMap[r][c].location)
+
+            if len(remainingCells) > 0:
+                random_location  = random.choice(tuple(remainingCells))
+                xRand = random_location[0]
+                yRand = random_location[1]
+                random_cell = minMap[xRand][yRand]
+                if random_cell.safe:
+                    minMap[xRand][yRand].visited = 1
+                    #visited.add(minMap[xRand][yRand].visited)
+                    #inferenced_cells.add(minMap[xRand][yRand].visited)
+                else:
+                    minMap[xRand][yRand].visited = -1
+                    tripped_mines.append(random_cell.location)
+                    inferenced_cells.add(minMap[xRand][yRand].location)
+                    i += 1
+            else:
+                break
+        input("---------------------------------------->")
+        printTimeSteps(minMap,d)
+
+    return (identified_mines,tripped_mines)
 
 def heuristic_assignments(KB,board,eq,clue):
     #Checks if there is any possible assignment for variables based on length. To understand: Use A  + B = Clue val and A - B = Clue val for length = 2 and generate all possible combinations for 0 and 1
@@ -357,7 +825,6 @@ def heuristic_assignments(KB,board,eq,clue):
 
     return assignment_set
 
-#REMEMBER TO CHANGE THIS TO THE UPDATED ONE
 def updateKB(KB,board,location,safe,identified_mines,mines_found): 
     var = None
     found = False
@@ -418,7 +885,8 @@ def make_basic_inferences(KB,board,eq,key, identified_mines,inferenced_cells):
                 print("all mines")
                 if c.visited == 0:
                     c.visited = 2
-                    identified_mines.append(c.location)
+                    if not c.location  in identified_mines:
+                        identified_mines.append(c.location)
                     
                     assignment_set.append(Variable(c.location,None,1))
             inferenced_cells.append(cell.location)
@@ -524,7 +992,7 @@ def matrix_advanced_agent(KB,board,d,n):
             if inference_type == -1:
                 inference_type = 1
                 print("--MADE ADVANCED INFERENCES--\n")
-                
+
             print("--FOUND ASSIGNMENTS FOR VARIABLES--")
             revealed = True
 
@@ -569,10 +1037,10 @@ def matrix_advanced_agent(KB,board,d,n):
         for assignment in assignment_set:
             if assignment.assignment == 0:
                 location = assignment.location 
-
-                x = location[0]
-                y = location[1]
-                board[x][y].visited = 1
+                print("out of range??"  + str((x,y)))
+                rowX = location[0]
+                colX = location[1]
+                board[rowX][colX].visited = 1
                 
                 clue_temp = getClueV2(board,location)
                 clue = clue_temp - revealedMinesV2(board,location)
@@ -664,106 +1132,113 @@ def matrix_advanced_agent(KB,board,d,n):
 
     return (identified_mines,tripped_mines)
 
-        
-    
 
 
+def play_by_play(d,n):
+    board = createBoard(n,d)
+    KB = {}
+    (identified,tripped) = advanced_solver_play_by_play(KB,board,d,n)
+
+    print("Identified mines : ", end = '\t')
+    print(identified)
+    print("Tripped mines : ", end = '\t')
+    print(tripped)
+    print("Success Rate: ")
+    print(float(len(identified)/float(n)))
 
 
 #board = createBoard(n,d)
 
+print("Select an option: ")
+print("1: Comparison of success rates between Basic and Advanced Agents (dim = user defined) and (number of mines = user defined) ")
+print("2: Play by Play of Basic or Advanced Agents")
+option = int(input("--------------------------------------------------------------------------------------------------------------\n"))
+if option == 2:
+    d = int(input("Enter dimension size: \n"))
+    n = int(input("Enter number of mines: \n"))
+    play_by_play(d,n)
+else:
+    solver_option = int(input("Which Success rate do you want to see?: \n(1) Basic Agent \n(2) Advanced Agent\n"))
+    d = int(input("select dimension size: \n"))
+    n = int((input("select number of mines: \n")))
 
-success_rate = []
-total_rate = []
-scores = []
-counter = 0
-for i in range(1):
-    minMap = createBoard(n, d)
-    KB = {}
-    (identified, tripped) = matrix_advanced_agent(KB,minMap,d,n)
-   
-    s1 = set(identified)
-    s2  = set(tripped)
-    if (len(s1.intersection(s2)) != 0):
-        counter += 1
-    print("----------------------------->")
-    print("Identified: ", end = ' ')
-    print(identified)
-    print("Tripped: ", end = ' ')
-    print(tripped)
-    success_rate.append(len(identified))
-    print("----------------------------->")
-    total_rate.append(n)
-for i in range(len(minMap)):
-    for j in range(len(minMap)):
-        print(minMap[i][j].visited, end = '\t')
-
-    print('\n')
-
-success = ((sum(success_rate)))
-total =  (sum(total_rate))
-print(counter)
-rate = float(float(success)/ float(total))
-print("success rate: ", end = '\t')
-print(rate)
-''
-'''
-'''
-'''
-print("Identified mines : ", end = '\t')
-print(identified)
-print("Tripped mines : ", end = '\t')
-print(tripped)
-'''
-'''
-
-'''
-
-
-    
-'''
-'''
-#--Tejas Pseudocode----
-
-
-def advanced_agent(KB,board,d,n):
-    identified_mines = []
-    tripped_mines = []
-    mines_found = 0
-    assignment_set = []
-    while (mines_found < n):
-        #ZERO CLUE STEP
-        (board,KB) = search_zero_clues(board,d,n)
-
-        for keyA in KB:
-
-            for keyB in KB:
-               
-                if keyA == keyB:
-                    continue
-               
-                #--check subtraction of 2 sets: (2 conditions, intersect and len or subtraction)
-                    #Note make an object where the set elements are comparable 
-                eq1 = KB[keyA]
-                eq2 = KB[keyB]
-                beginning_len = len(assignment_set)
-                assignment_set.extend(make_basic_inferences(KB,board,eq1,keyA))
-                assignment_set.extend(make_basic_inferences(KB,board,eq2,keyB))
-                if len(assignment_set) > beginning_len:
-                    print("---Made Basic Inferences and recieved assignments---")
-                    continue
-
-                if len(eq1) > len(eq2):
-                    if eq2.issubset(eq1):
-                        assignment_set.extend(make_advanced_inferences(KB,board,eq1,eq2,))
-              
-
-
-          
-#--end Tejas PsuedoCode
-
-
+    if solver_option == 2:
+        success_rate = []
+        total_rate = []
+        scores = []
+        counter = 0
+        for i in range(10):
+            minMap = createBoard(n, d)
+            KB = {}
+            (identified, tripped) = advanced_solver(KB,minMap,d,n)
         
+            s1 = set(identified)
+            s2  = set(tripped)
+            if (len(s1.intersection(s2)) != 0):
+                counter += 1
+            print("----------------------------->")
+            print("Identified: ", end = ' ')
+            print(identified)
+            print("Tripped: ", end = ' ')
+            print(tripped)
+            success_rate.append(len(identified))
+            print("----------------------------->")
+            total_rate.append(n)
+        '''
+        for i in range(len(minMap)):
+            for j in range(len(minMap)):
+                print(minMap[i][j].visited, end = '\t')
+
+            print('\n')
+        '''
+        success = ((sum(success_rate)))
+        total =  (sum(total_rate))
+        print(counter)
+        rate = float(float(success)/ float(total))
+        print("success rate: ", end = '\t')
+        print(rate)
+
+    elif solver_option == 1:
+        success_rate = []
+        total_rate = []
+        scores = []
+        counter = 0
+        for i in range(10):
+            minMap = createBoard(n, d)
+            KB = {}
+            (identified, tripped) = solver(minMap,d,n)
         
-                    
-            
+            s1 = set(identified)
+            s2  = set(tripped)
+            if (len(s1.intersection(s2)) != 0):
+                counter += 1
+            print("----------------------------->")
+            print("Identified: ", end = ' ')
+            print(identified)
+            print("Tripped: ", end = ' ')
+            print(tripped)
+            success_rate.append(len(identified))
+            print("----------------------------->")
+            total_rate.append(n)
+        '''
+        for i in range(len(minMap)):
+            for j in range(len(minMap)):
+                print(minMap[i][j].visited, end = '\t')
+
+            print('\n')
+        '''
+        success = ((sum(success_rate)))
+        total =  (sum(total_rate))
+        print(counter)
+        rate = float(float(success)/ float(total))
+        print("success rate: ", end = '\t')
+        print(rate)
+
+    else:
+        print("Invalid option(s) selection")
+
+
+
+
+
+
