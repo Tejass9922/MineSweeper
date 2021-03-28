@@ -220,11 +220,11 @@ def createBoard(n, d):
 
 def getClue(board, cell):
     clue = 0
-    n = len(board)
+    size = len(board)
     for i in range(8):
         x = row[i] + cell.location[0]
         y = col[i]  + cell.location[1]
-        if x >= 0 and x < n and y >=0 and y < n:
+        if x >= 0 and x < size and y >=0 and y < size:
            
             if (board[x][y].safe == False):
                 clue += 1
@@ -752,14 +752,16 @@ def advanced_solver(KB,minMap,d,n,visited,inferenced_cells,clue_counter,i):
             random_cell = minMap[xRand][yRand]
             
             if random_cell.safe:
-                minMap[xRand][yRand].visited = 1
+                random_cell.visited = 1
                 #visited.add(minMap[xRand][yRand].visited)
                 #inferenced_cells.add(minMap[xRand][yRand].visited)
-                random_cell.clue = getClue(minMap,cell)
-                random_cell.revealedMines =  revealedMines(minMap, cell)
-                random_cell.numHiddenSquares =  hiddenCells(minMap, cell)
-                neighbors = getNeighbors(minMap,cell)
-                random_cell.numSafeNeighbors = revealedSafeNeighbors(minMap, cell)
+                random_cell.location = random_location
+                random_cell.clue = getClue(minMap,random_cell)
+                print("CLUEEE: " + str(random_cell.clue))
+                random_cell.revealedMines =  revealedMines(minMap, random_cell)
+                random_cell.numHiddenSquares =  hiddenCells(minMap, random_cell)
+                neighbors = getNeighbors(minMap,random_cell)
+                random_cell.numSafeNeighbors = revealedSafeNeighbors(minMap, random_cell)
                 
             else:
                 minMap[xRand][yRand].visited = -1
