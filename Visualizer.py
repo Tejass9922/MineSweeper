@@ -1,16 +1,30 @@
 import pygame
 from Minesweeper_utilities import *
 from tkinter import *
+import tkinter as tk 
 from tkinter import messagebox
+from tkinter import simpledialog
 
+ROOT = tk.Tk()
+ROOT.eval('tk::PlaceWindow . center')
+ROOT.withdraw()
 # Define some colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
+
+
+# the input dialog
+dim = int(simpledialog.askstring(title="Dimension",
+                                  prompt="Enter Dimension size"))
+n = int(simpledialog.askstring(title="Dimension", prompt="Enter number of mines"))
+      
+'''                           
 dim = int(input("Dimension Size: "))
 n = int(input("Enter number of mines: " ))
+'''
 # This sets the WIDTH and HEIGHT of each grid location
 WIDTH = int((500 / dim)) - 5
 HEIGHT = int((500 / dim )) - 5
@@ -75,6 +89,7 @@ while not done:
     if game_over:
         Tk().wm_withdraw() #to hide the main window
         messagebox.showinfo('GAME OVER','OK')
+        #messagebox.showinfo('Flagged Mines: ' + str(len(identified_mines) + " / " + str(n)))
         done = True
     for event in pygame.event.get():  # User did something
         if event.type == pygame.QUIT:  # If user clicked close
